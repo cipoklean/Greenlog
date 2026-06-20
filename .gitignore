@@ -8,8 +8,8 @@ node_modules/
 
 # Local data (wipe before commit if you want a clean starter)
 # Uncomment if you don't want logs in the repo:
-# data/logs.json
-# data/config.json
+data/logs.json
+data/config.json
 
 # OS junk
 .DS_Store

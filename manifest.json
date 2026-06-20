@@ -5,10 +5,6 @@
     "background_colour": "#1d8a4f"
   },
   "features": {
-    "assistant_view": {
-      "assistant_description": "Hi, I am an agent built using Bolt for JavaScript. I am here to help you out!",
-      "suggested_prompts": []
-    },
     "app_home": {
       "home_tab_enabled": true,
       "messages_tab_enabled": true,
@@ -19,12 +15,12 @@
       "always_online": true
     },
     "slash_commands": [
-    {
-      "command": "/greenlog",
-      "description": "Log a sustainability decision or view the weekly impact digest",
-      "usage_hint": "log <decision> | week | ping",
-      "should_escape": false
-    }
+      {
+        "command": "/greenlog",
+        "description": "Log a sustainability decision or view the weekly impact digest",
+        "usage_hint": "log <decision> | week | ping",
+        "should_escape": false
+      }
     ]
   },
   "oauth_config": {
@@ -38,16 +34,8 @@
         "im:history",
         "mpim:history",
         "users:read",
-        "search:read.public",
-        "search:read.private",
-        "search:read.mpim",
-        "search:read.im",
-        "search:read.files",
-        "search:read.users",
         "chat:write",
-        "canvases:read",
-        "canvases:write",
-        "users:read.email"
+        "canvases:write"
       ],
       "bot": [
         "app_mentions:read",
@@ -60,7 +48,6 @@
         "reactions:write",
         "reactions:read",
         "users:read",
-        "assistant:write",
         "commands",
         "canvases:write"
       ]
@@ -69,20 +56,13 @@
   "settings": {
     "event_subscriptions": {
       "request_url": "https://ngrok-free.app/slack/events",
-      "bot_events": [
-        "app_home_opened",
-        "app_mention",
-        "assistant_thread_started",
-        "message.channels",
-        "message.groups",
-        "message.im"
-      ]
+      "bot_events": ["app_home_opened", "app_mention"]
     },
     "interactivity": {
       "is_enabled": true,
       "request_url": "https://ngrok-free.app/slack/events"
     },
-    "is_mcp_enabled": true,
+    "is_mcp_enabled": false,
     "org_deploy_enabled": true,
     "socket_mode_enabled": true,
     "token_rotation_enabled": false
