@@ -10,6 +10,7 @@ node_modules/
 # Uncomment if you don't want logs in the repo:
 data/logs.json
 data/config.json
+data/usage.json
 
 # OS junk
 .DS_Store

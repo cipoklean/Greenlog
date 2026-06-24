@@ -16,25 +16,26 @@ async function fetchThreadText({ client, channel, threadTs, selfBotUserId, logge
       ts: threadTs,
       limit: 50,
     });
-    if (!res.ok || !Array.isArray(res.messages)) return '';
-    return res.messages
+    if (!res.ok || !Array.isArray(res.messages)) return { text: '', count: 0 };
+    const human = res.messages
       .filter((m) => m.user && m.user !== selfBotUserId)
       .map((m) => stripMentions(m.text || ''))
-      .filter((t) => t.length > 0)
-      .join('\n');
+      .filter((t) => t.length > 0);
+    return { text: human.join('\n'), count: human.length };
   } catch (err) {
     logger?.error?.({ err }, 'greenlog fetchThreadText failed');
-    return '';
+    return { text: '', count: 0 };
   }
 }
 
-async function estimateImpact(userContent) {
+async function estimateImpact(userContent, { context } = {}) {
   const raw = await chatComplete({
     systemPrompt: CARBON_ESTIMATE_SYSTEM_PROMPT,
     userContent,
     temperature: 0.3,
     maxTokens: 200,
     timeoutMs: 15000,
+    context,
   });
   return { raw, parsed: parseEstimate(raw) };
 }
@@ -78,9 +79,10 @@ async function handleAppMention({ event, client, context, logger }) {
     let decisionForLLM;
     let headerLine;
     let source;
+    let llmContext;
 
     if (inThread) {
-      const threadText = await fetchThreadText({
+      const { text: threadText, count } = await fetchThreadText({
         client,
         channel,
         threadTs: event.thread_ts,
@@ -96,10 +98,12 @@ async function handleAppMention({ event, client, context, logger }) {
       decisionForLLM = `Decision context from team discussion:\n\n${threadText}`;
       headerLine = '🌱 *Carbon impact for this thread:*';
       source = 'mention-thread';
+      llmContext = { intent: 'summarize-thread', messageCount: count };
     } else {
       decisionForLLM = stripped;
       headerLine = `🌱 *Estimated impact:* ${stripped}`;
       source = 'mention-direct';
+      llmContext = { intent: 'estimate' };
     }
 
     // Rate-limit LLM calls per user to prevent cost-abuse via spamming.
@@ -113,7 +117,7 @@ async function handleAppMention({ event, client, context, logger }) {
     // log the decision itself. Failure here is non-fatal.
     recordUsage({ source, channelId: channel }).catch((err) => logger?.error?.({ err }, 'greenlog recordUsage failed'));
 
-    const { raw, parsed } = await estimateImpact(decisionForLLM);
+    const { raw, parsed } = await estimateImpact(decisionForLLM, { context: llmContext });
     const { impact, category, why } = parsed;
 
     if (!impact || !category || !why) {
@@ -126,7 +130,7 @@ async function handleAppMention({ event, client, context, logger }) {
   } catch (err) {
     logger?.error?.('greenlog mention error', err);
     try {
-      await replyInThread(`🌱 Couldn't estimate impact right now: ${classifyLlmError(err)}`);
+      await replyInThread(classifyLlmError(err, llmContext));
     } catch {
       // swallow — don't crash on reply failure
     }

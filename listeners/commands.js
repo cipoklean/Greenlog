@@ -44,12 +44,14 @@ async function handleLog({ respond, decision, meta, logger }) {
   }
 
   try {
+    const llmContext = { intent: 'estimate' };
     const raw = await chatComplete({
       systemPrompt: CARBON_ESTIMATE_SYSTEM_PROMPT,
       userContent: decision,
       temperature: 0.3,
       maxTokens: 200,
       timeoutMs: 15000,
+      context: llmContext,
     });
     const { impact, category, why } = parseEstimate(raw);
 
@@ -142,7 +144,7 @@ async function handleLog({ respond, decision, meta, logger }) {
       response_type: 'ephemeral',
       ...buildErrorCard({
         title: "Couldn't estimate impact",
-        body: classifyLlmError(err),
+        body: classifyLlmError(err, { intent: 'estimate' }),
         hint: 'Try again in a moment, or rephrase your decision.',
       }),
     });

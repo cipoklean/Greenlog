@@ -2,7 +2,7 @@
 
 Slack bot for tracking team sustainability decisions and publishing weekly carbon-impact digests.
 
-Built with Slack Bolt (Socket Mode) and Gemini via the OpenAI-compatible SDK.
+Built with Slack Bolt (Socket Mode) and an OpenAI-compatible multi-provider LLM layer (Gemini primary, Groq fallback).
 
 ## Setup
 
@@ -16,7 +16,11 @@ npm start
 
 | Variable | Description |
 |----------|-------------|
-| `GEMINI_API_KEY` | Gemini API key (used via OpenAI-compatible endpoint) |
+| `LLM_PROVIDER` | Primary LLM provider (`gemini` or `groq`; default: `gemini`) |
+| `GEMINI_API_KEY` | Gemini API key (default primary, vision-capable) |
+| `GEMINI_MODEL` | Gemini model override (default: `gemini-3.1-flash-lite`) |
+| `GROQ_API_KEY` | Groq API key (text-only fallback; leave unset to disable) |
+| `GROQ_MODEL` | Groq model override (default: `llama-3.3-70b-versatile`) |
 | `SLACK_BOT_TOKEN` | Bot token (`xoxb-`) |
 | `SLACK_APP_TOKEN` | App-level token (`xapp-`) for Socket Mode |
 | `GREENLOG_DIGEST_CHANNEL` | Default channel for weekly digest (env fallback) |
@@ -48,7 +52,7 @@ npm test             # Run tests (node:test)
 
 ### Library Modules
 
-- `lib/llm.js` — Gemini chat completion via OpenAI-compatible SDK (`generativelanguage.googleapis.com/v1beta/openai/`)
+- `lib/llm.js` — Multi-provider LLM layer (PROVIDERS registry, automatic fallback chain, capability-aware routing). Gemini is the default primary; Groq is the text-only fallback. Context-aware error messages for graceful degradation.
 - `lib/store.js` — JSON file persistence for log entries (`data/logs.json`)
 - `lib/configStore.js` — per-workspace settings persistence (`data/config.json`)
 - `lib/digest.js` — weekly digest aggregation, rendering (text + Slack blocks)
@@ -61,21 +65,25 @@ npm test             # Run tests (node:test)
 - `lib/logList.js` — recent log listing with delete buttons
 - `lib/handler.js` — safe async handler wrapper with error recovery
 - `lib/errorCard.js` — error card block builder
+- `lib/rateLimit.js` — in-memory sliding-window rate limiter for LLM calls
+- `lib/usage.js` — lightweight mention-usage tracking (`data/usage.json`, separate from decision logs)
 
 ### Data Flow
 
 1. User runs `/greenlog log <decision>` or mentions `@GreenLog`
-2. Decision text is sent to Gemini for carbon impact estimation
+2. Decision text is sent to the LLM (primary provider, with automatic fallback to the next on retriable errors)
 3. Response is parsed into magnitude, direction, category, and explanation
-4. Log entry is persisted to `data/logs.json`
-5. Structured Slack message (blocks) is returned to the user
-6. Weekly cron aggregates all logs, builds a digest, and posts it to the configured channel with an optional Slack canvas
+4. For `/greenlog log` only — the entry is persisted to `data/logs.json`
+5. `@GreenLog` mentions are ephemeral (not persisted), but usage is counted in `data/usage.json`
+6. Structured Slack message (blocks) is returned to the user
+7. Weekly cron aggregates all logs, builds a digest, and posts it to the configured channel with an optional Slack canvas
 
 ### File Storage
 
 - `data/logs.json` — array of log entries (JSON, write-mutex protected)
 - `data/config.json` — per-workspace settings (JSON, write-mutex protected)
-- Both files have corrupt-JSON recovery (rename + start fresh)
+- `data/usage.json` — mention-usage events (JSON, write-mutex protected)
+- All three files have corrupt-JSON recovery (rename + start fresh)
 
 ## Testing
 
